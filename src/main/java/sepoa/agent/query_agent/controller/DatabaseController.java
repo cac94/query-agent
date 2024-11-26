@@ -46,7 +46,6 @@ public class DatabaseController {
             try {
                 jsonString = objectMapper.writeValueAsString(rtn);
             } catch (JsonProcessingException e) {
-                // TODO Auto-generated catch block
                 e.printStackTrace();
             }
             logger.info(jsonString);
