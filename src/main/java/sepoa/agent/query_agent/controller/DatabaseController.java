@@ -27,6 +27,31 @@ public class DatabaseController {
     public DatabaseController(DatabaseService databaseService) {
         this.databaseService = databaseService;
     }
+    @GetMapping("/test")
+    public ResponseEntity<Map<String, Object>> executeQuery() {
+        Map<String, Object> rtn = new HashMap<>();
+        try {
+            logger.info("=== test call");
+            String sql = "SELECT TABLE_SCHEMA, TABLE_NAME FROM INFORMATION_SCHEMA.TABLES";
+            List<Map<String, Object>> result = databaseService.executeQuery(sql);
+            rtn.put("result", "SUCCESS");
+            rtn.put("data", result);
+            rtn.put("message", "");
+        } catch (Exception e) {
+            rtn.put("result", "FAIL");
+            rtn.put("data", "");
+            rtn.put("message", e.getMessage());
+        } finally {
+            String jsonString = "";
+            try {
+                jsonString = objectMapper.writeValueAsString(rtn);
+            } catch (JsonProcessingException e) {
+                e.printStackTrace();
+            }
+            logger.info(jsonString);
+        }
+        return ResponseEntity.ok(rtn);
+    }
 
     @PostMapping("/query")
     public ResponseEntity<Map<String, Object>> executeQuery(@RequestBody String sql) {
