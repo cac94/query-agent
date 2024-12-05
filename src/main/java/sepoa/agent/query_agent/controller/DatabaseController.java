@@ -1,5 +1,8 @@
 package sepoa.agent.query_agent.controller;
 
+import org.apache.commons.io.FileUtils;
+import org.apache.commons.io.filefilter.TrueFileFilter;
+import org.apache.commons.io.filefilter.WildcardFileFilter;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -11,7 +14,14 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 
 import sepoa.agent.query_agent.service.DatabaseService;
 
+import java.io.File;
+import java.text.SimpleDateFormat;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.Base64;
+import java.util.Date;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 
@@ -26,13 +36,15 @@ public class DatabaseController {
     @Autowired
     public DatabaseController(DatabaseService databaseService) {
         this.databaseService = databaseService;
+        this.databaseService.init();
     }
+
     @GetMapping("/test")
-    public ResponseEntity<Map<String, Object>> executeQuery() {
+    public ResponseEntity<Map<String, Object>> executeTest() {
         Map<String, Object> rtn = new HashMap<>();
         try {
             logger.info("=== test call");
-            String sql = "SELECT TABLE_SCHEMA, TABLE_NAME FROM INFORMATION_SCHEMA.TABLES";
+            String sql = "SELECT TOP 1 TABLE_SCHEMA, TABLE_NAME FROM INFORMATION_SCHEMA.TABLES";
             List<Map<String, Object>> result = databaseService.executeQuery(sql);
             rtn.put("result", "SUCCESS");
             rtn.put("data", result);
@@ -50,6 +62,123 @@ public class DatabaseController {
             }
             logger.info(jsonString);
         }
+        return ResponseEntity.ok(rtn);
+    }
+ 
+    @GetMapping("/read2send")
+    public ResponseEntity<Map<String, Object>> executeReadToSend() {
+        
+        Map<String, Object> rtn = new HashMap<>();
+        // 조달청에서 넘어온 데이타 저장
+        HashSet<String> fileNameSet =new HashSet<String>();
+
+        // 기본 생성자로 생성시 현재 시간과 날짜 정보를 가진 Date 객체가 생성됩니다.
+        Date nowDate = new Date();
+
+        // 원하는 형태의 포맷으로 날짜, 시간을 표현하기 위해서는 SimpleDateFormat 클래스를 이용합니다.
+        
+        SimpleDateFormat dateFormat = new SimpleDateFormat("yyyyMMdd");
+        SimpleDateFormat timeFormat = new SimpleDateFormat("HHmmss");
+
+        String date = dateFormat.format(nowDate);
+        String time = timeFormat.format(nowDate);
+        
+        try {
+            databaseService.Log("-------------------------------------------------------------------", date, time);
+
+            databaseService.Log("folderPath : " + databaseService.folderPath, date, time);
+            databaseService.Log("targetFolder : " + databaseService.targetFolder, date, time);
+            databaseService.Log("sessionToken : " + databaseService.sessionToken, date, time);
+            databaseService.Log("serviceToken : " + databaseService.serviceToken, date, time);
+    
+            File folder = new File(databaseService.folderPath);
+            if (!folder.exists() || !folder.isDirectory()) {
+                throw new Exception("폴더가 존재하지 않거나 폴더가 아닙니다.");
+            }
+            // 폴더 내의 모든 파일 및 하위 폴더를 검사합니다.
+            List<File> resultFiles = new ArrayList<>();
+            for (String type : databaseService.types) {
+                resultFiles.addAll((List<File>) FileUtils.listFiles(folder, new WildcardFileFilter(type + "*"),TrueFileFilter.INSTANCE));
+            } 
+            
+            //이미 읽은 파일 목록을 가져옵니다.
+            File writeFilePath = new File(databaseService.checkUrl);
+
+            // 부모 디렉토리 없으면 생성
+            File parentDir = writeFilePath.getParentFile();
+            if (!parentDir.exists()) {
+                parentDir.mkdirs();
+            }
+
+            // 파일 없으면 생성
+            if (!writeFilePath.exists()) {
+                writeFilePath.createNewFile();
+            } 
+
+            String checkXml = FileUtils.readFileToString(writeFilePath, "UTF-8");	
+            fileNameSet = new HashSet<>(Arrays.asList(checkXml.split("\n")));
+        
+            rtn.put("files", resultFiles);
+            if (resultFiles.size() > 0) {
+                for (File file : resultFiles) {
+                    if (file.exists()) {
+                        try {
+                            String key = file.getPath().replaceAll("\\\\", "/");
+                            String fileName = file.getName();
+                            String type = fileName.substring(0, 6 );
+                            databaseService.Log("fileName : " + fileName, date, time);
+                            databaseService.Log("type : " + type, date, time);
+
+                            // 중복파일 체크파일 이름이 이미 있는 경우 예외 발생
+                            if (!fileNameSet.add(fileName)) {
+                                databaseService.Log("이미 처리한 파일입니다.: "+fileName, date, time);
+                                continue;
+                            }
+                            key = key.substring(key.indexOf("recv"), key.length()); //경로 DB 저장용
+                            String returnData = "";
+                            String lastTwo = fileName.substring(fileName.length() - 2);
+                            String base64String = "";
+                            if(".0".equals(lastTwo)) { //xml
+                                base64String = FileUtils.readFileToString(file, "UTF-8");
+                            }else {
+                                byte[] fileContent = databaseService.readFileToByteArray(file);
+                                base64String = Base64.getEncoder().encodeToString(fileContent);
+                            }
+                            
+                            returnData = databaseService.callRestInterface(databaseService.recvUrl, key, base64String, type);
+
+                            Map<String, String> g2bMap = databaseService.jsonToMap(returnData);
+                            databaseService.Log("g2bMap : " + g2bMap, date, time);
+                            databaseService.Log("Send Message : " + g2bMap.get("MESSAGE"), date, time);
+
+                            if(g2bMap != null && "E".equals(g2bMap.get("IFCODE"))) {
+                                databaseService.Log("Send File Error : " + file.getPath(), date, time);
+                            } else {
+                                System.out.println(g2bMap);
+                                //신규파일 이름 기록
+                                FileUtils.writeStringToFile(writeFilePath, fileName+"\n", "UTF-8", true);
+                                databaseService.Log("Send File Success : " + file.getPath(), date, time);
+                                
+                            }
+                            databaseService.moveFile(databaseService.folderPath + "/" + fileName, databaseService.targetFolder + "/" + fileName);
+                        }catch(Exception e){
+                            databaseService.Log("Job File Fail01!!! : " + file.getPath(), date, time);
+                            databaseService.Log("Job File Fail01!!! : " + databaseService.getPrintStackTrace(e), date, time);
+                        }
+                    }
+                }
+                // try {
+                //     Thread.sleep(periodSec * 1000);
+                // } catch (InterruptedException e) {
+                //     e.printStackTrace();
+                // }
+                
+            }
+        } catch (Throwable e) {
+            databaseService.Log("Job File Fail02!!! : " + e.getMessage(), date, time);
+            databaseService.Log("Job File Fail02!!! : " + databaseService.getPrintStackTrace(e), date, time);
+        } 
+
         return ResponseEntity.ok(rtn);
     }
 
