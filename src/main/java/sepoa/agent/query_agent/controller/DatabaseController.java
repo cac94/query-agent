@@ -12,10 +12,13 @@ import org.springframework.web.bind.annotation.*;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 
+import sepoa.agent.query_agent.model.SendFile;
 import sepoa.agent.query_agent.service.DatabaseService;
 
 import java.io.File;
+import java.nio.charset.StandardCharsets;
 import java.text.SimpleDateFormat;
+import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Base64;
@@ -67,7 +70,7 @@ public class DatabaseController {
  
     @GetMapping("/read2send")
     public ResponseEntity<Map<String, Object>> executeReadToSend() {
-        
+        this.databaseService.init();
         Map<String, Object> rtn = new HashMap<>();
         // 조달청에서 넘어온 데이타 저장
         HashSet<String> fileNameSet =new HashSet<String>();
@@ -90,10 +93,12 @@ public class DatabaseController {
             databaseService.Log("targetFolder : " + databaseService.targetFolder, date, time);
             databaseService.Log("sessionToken : " + databaseService.sessionToken, date, time);
             databaseService.Log("serviceToken : " + databaseService.serviceToken, date, time);
-    
+
+            rtn.put("message", "");
             File folder = new File(databaseService.folderPath);
             if (!folder.exists() || !folder.isDirectory()) {
-                throw new Exception("폴더가 존재하지 않거나 폴더가 아닙니다.");
+                rtn.put("message", "폴더가 존재하지 않거나 폴더가 아닙니다.");
+                return ResponseEntity.ok(rtn);
             }
             // 폴더 내의 모든 파일 및 하위 폴더를 검사합니다.
             List<File> resultFiles = new ArrayList<>();
@@ -102,7 +107,7 @@ public class DatabaseController {
             } 
             
             //이미 읽은 파일 목록을 가져옵니다.
-            File writeFilePath = new File(databaseService.checkUrl);
+            File writeFilePath = new File(databaseService.checkFile);
 
             // 부모 디렉토리 없으면 생성
             File parentDir = writeFilePath.getParentFile();
@@ -139,7 +144,8 @@ public class DatabaseController {
                             String lastTwo = fileName.substring(fileName.length() - 2);
                             String base64String = "";
                             if(".0".equals(lastTwo)) { //xml
-                                base64String = FileUtils.readFileToString(file, "UTF-8");
+                                String xml = FileUtils.readFileToString(file, "UTF-8");
+                                base64String = Base64.getEncoder().encodeToString(xml.getBytes(StandardCharsets.UTF_8));
                             }else {
                                 byte[] fileContent = databaseService.readFileToByteArray(file);
                                 base64String = Base64.getEncoder().encodeToString(fileContent);
@@ -149,9 +155,9 @@ public class DatabaseController {
 
                             Map<String, String> g2bMap = databaseService.jsonToMap(returnData);
                             databaseService.Log("g2bMap : " + g2bMap, date, time);
-                            databaseService.Log("Send Message : " + g2bMap.get("MESSAGE"), date, time);
+                            databaseService.Log("Send Message : " + g2bMap.get("message"), date, time);
 
-                            if(g2bMap != null && "E".equals(g2bMap.get("IFCODE"))) {
+                            if(g2bMap != null && "false".equals(g2bMap.get("flag"))) {
                                 databaseService.Log("Send File Error : " + file.getPath(), date, time);
                             } else {
                                 System.out.println(g2bMap);
@@ -167,18 +173,22 @@ public class DatabaseController {
                         }
                     }
                 }
-                // try {
-                //     Thread.sleep(periodSec * 1000);
-                // } catch (InterruptedException e) {
-                //     e.printStackTrace();
-                // }
-                
             }
         } catch (Throwable e) {
             databaseService.Log("Job File Fail02!!! : " + e.getMessage(), date, time);
             databaseService.Log("Job File Fail02!!! : " + databaseService.getPrintStackTrace(e), date, time);
         } 
 
+        return ResponseEntity.ok(rtn);
+    }
+
+
+    @PostMapping("/sendfile")
+    public ResponseEntity<Map<String, Object>> executeSendFile(@RequestBody SendFile sendFile) {
+        this.databaseService.init();
+        Map<String, Object> rtn = new HashMap<>();
+        String msg = this.databaseService.sendFile(sendFile);
+        rtn.put("message", msg);
         return ResponseEntity.ok(rtn);
     }
 

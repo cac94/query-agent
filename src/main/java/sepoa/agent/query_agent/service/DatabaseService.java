@@ -5,11 +5,17 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Service;
 
+import com.google.gson.Gson;
+import com.google.gson.reflect.TypeToken;
+
+import sepoa.agent.query_agent.model.SendFile;
+
 import java.io.BufferedReader;
 import java.io.BufferedWriter;
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.FileNotFoundException;
+import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
@@ -17,6 +23,7 @@ import java.io.OutputStream;
 import java.io.OutputStreamWriter;
 import java.io.PrintWriter;
 import java.io.StringWriter;
+import java.lang.reflect.Type;
 import java.net.HttpURLConnection;
 import java.net.URL;
 import java.nio.charset.StandardCharsets;
@@ -56,6 +63,9 @@ public class DatabaseService {
     @Value("${sepoa.recv}")
     private String folderRecv;
 
+    @Value("${sepoa.send}")
+    private String folderSend;
+
     @Value("${sepoa.types}")
     private String confTypes;
 
@@ -72,7 +82,7 @@ public class DatabaseService {
 	public String serviceToken;
 
     private final JdbcTemplate jdbcTemplate;
-    public String checkUrl = "";
+    public String checkFile = "";
     public String folderPath = "";
     public List<String> types = new ArrayList<String>();
 
@@ -91,7 +101,7 @@ public class DatabaseService {
         String month = dateFormat.format(nowDate).substring(4, 6) ;
 		String formattedDate = LocalDate.now().format(DateTimeFormatter.ofPattern("yyyy/MM/dd"));		        
 
-        this.checkUrl = this.logFolder.replace("/", File.separator)+"/"+year+"/"+month+"/" +"RecvFileList.txt";
+        this.checkFile = this.logFolder.replace("/", File.separator)+"/"+year+"/"+month+"/" +"RecvFileList.txt";
         this.folderPath = this.folderRecv + formattedDate;
         this.types.addAll(Arrays.asList(confTypes.split(","))); 
         this.types.addAll(Arrays.asList(confTypesFile.split(","))); 
@@ -103,6 +113,37 @@ public class DatabaseService {
 
     public int executeUpsert(String sql) {
         return jdbcTemplate.update(sql);
+    }
+
+    public String sendFile(SendFile sendFile) {
+        String rtn = "";
+		Date nowDate = new Date();
+
+		// 원하는 형태의 포맷으로 날짜, 시간을 표현하기 위해서는 SimpleDateFormat 클래스를 이용합니다.
+		
+		SimpleDateFormat dateFormat = new SimpleDateFormat("yyyyMMdd");
+		SimpleDateFormat timeFormat = new SimpleDateFormat("HHmmss");
+
+		String date = dateFormat.format(nowDate);
+        String time = timeFormat.format(nowDate);
+
+        try{
+			String lastTwo = sendFile.getFileName().substring(sendFile.getFileName().length() - 2);
+			String sXml = sendFile.getContent(); //xml이 아니면 그냥 Base64 encoding 상태로 저장
+			if(".0".equals(lastTwo)) { //xml인 경우 디코드해서 저장
+                sXml = new String(Base64.getDecoder().decode(sXml.getBytes(StandardCharsets.UTF_8)));
+            }else {
+                byte[] decodedBytes = Base64.getDecoder().decode(sXml);
+                try (FileOutputStream fos = new FileOutputStream(folderSend + sendFile.getFileName())) {
+                    fos.write(decodedBytes);
+                }
+            }
+        } catch (Exception e) {
+            Log("Failed to move file: " + e.getMessage(), date, time);
+            return rtn = e.getMessage();
+        }
+
+        return rtn;
     }
  
 	public String callRestInterface(String url, String key, String xml, String type) throws Exception {
@@ -239,17 +280,13 @@ public class DatabaseService {
 	}
 	
 	public Map<String, String> jsonToMap(String jsonString) {
-        Map<String, String> map = new HashMap<>();
+        Gson gson = new Gson();
 
-        Pattern pattern = Pattern.compile("\"([^\"]+)\":\"([^\"]+)\"");
-        Matcher matcher = pattern.matcher(jsonString);
+        // Define the type for Map<String, String>
+        Type type = new TypeToken<Map<String, String>>() {}.getType();
 
-        while (matcher.find()) {
-            String key = matcher.group(1);
-            String value = matcher.group(2);
-            map.put(key, value);
-        }
-
+        // Convert JSON string to Map<String, String>
+        Map<String, String> map = gson.fromJson(jsonString, type);
         return map;
     }
 	

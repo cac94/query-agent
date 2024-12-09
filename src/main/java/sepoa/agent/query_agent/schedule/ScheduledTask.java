@@ -18,7 +18,7 @@ public class ScheduledTask {
     private static final Logger logger = LoggerFactory.getLogger(ScheduledTask.class);
     private final RestTemplate restTemplate = new RestTemplate();
 
-    @Scheduled(fixedRateString = "#{${sepoa.schedule.period}}") // Runs every 5 seconds
+    @Scheduled(fixedRateString = "#{${sepoa.schedule.period}}") // Runs every period milliseconds
     public void callHelloEndpoint() {
         try {
             if (url == null || "".equals(url)) return;
