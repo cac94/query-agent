@@ -18,7 +18,6 @@ import sepoa.agent.query_agent.service.DatabaseService;
 import java.io.File;
 import java.nio.charset.StandardCharsets;
 import java.text.SimpleDateFormat;
-import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Base64;
@@ -124,12 +123,13 @@ public class DatabaseController {
             fileNameSet = new HashSet<>(Arrays.asList(checkXml.split("\n")));
         
             rtn.put("files", resultFiles);
+            String fileName = "";
             if (resultFiles.size() > 0) {
                 for (File file : resultFiles) {
                     if (file.exists()) {
                         try {
                             String key = file.getPath().replaceAll("\\\\", "/");
-                            String fileName = file.getName();
+                            fileName = file.getName();
                             String type = fileName.substring(0, 6 );
                             databaseService.Log("fileName : " + fileName, date, time);
                             databaseService.Log("type : " + type, date, time);
@@ -166,10 +166,11 @@ public class DatabaseController {
                                 databaseService.Log("Send File Success : " + file.getPath(), date, time);
                                 
                             }
-                            databaseService.moveFile(databaseService.folderPath + "/" + fileName, databaseService.targetFolder + "/" + fileName);
                         }catch(Exception e){
                             databaseService.Log("Job File Fail01!!! : " + file.getPath(), date, time);
                             databaseService.Log("Job File Fail01!!! : " + databaseService.getPrintStackTrace(e), date, time);
+                        }finally {
+                            databaseService.moveFile(databaseService.folderPath + "/" + fileName, databaseService.targetFolder + "/" + fileName);
                         }
                     }
                 }

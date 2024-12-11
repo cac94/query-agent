@@ -128,13 +128,13 @@ public class DatabaseService {
         String time = timeFormat.format(nowDate);
 
         try{
-			String lastTwo = sendFile.getFileName().substring(sendFile.getFileName().length() - 2);
+			String lastTwo = sendFile.getFilename().substring(sendFile.getFilename().length() - 2);
 			String sXml = sendFile.getContent(); //xml이 아니면 그냥 Base64 encoding 상태로 저장
 			if(".0".equals(lastTwo)) { //xml인 경우 디코드해서 저장
                 sXml = new String(Base64.getDecoder().decode(sXml.getBytes(StandardCharsets.UTF_8)));
             }else {
                 byte[] decodedBytes = Base64.getDecoder().decode(sXml);
-                try (FileOutputStream fos = new FileOutputStream(folderSend + sendFile.getFileName())) {
+                try (FileOutputStream fos = new FileOutputStream(folderSend + sendFile.getFilename())) {
                     fos.write(decodedBytes);
                 }
             }

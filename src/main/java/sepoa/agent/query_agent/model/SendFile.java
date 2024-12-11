@@ -1,24 +1,24 @@
 package sepoa.agent.query_agent.model;
 
 public class SendFile {
-    private String fileName;
+    private String filename;
     private String content;
 
     // Constructors
     public SendFile() {}
 
-    public SendFile(String fileName, String content) {
-        this.fileName = fileName;
+    public SendFile(String filename, String content) {
+        this.filename = filename;
         this.content = content;
     }
 
     // Getters and Setters
-    public String getFileName() {
-        return fileName;
+    public String getFilename() {
+        return filename;
     }
 
-    public void setFileName(String fileName) {
-        this.fileName = fileName;
+    public void setFilename(String filename) {
+        this.filename = filename;
     }
 
     public String getContent() {
