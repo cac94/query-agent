@@ -16,12 +16,14 @@ import java.io.File;
 import java.io.FileInputStream;
 import java.io.FileNotFoundException;
 import java.io.FileOutputStream;
+import java.io.FileWriter;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.io.OutputStream;
 import java.io.OutputStreamWriter;
 import java.io.PrintWriter;
+import java.io.Writer;
 import java.io.StringWriter;
 import java.lang.reflect.Type;
 import java.net.HttpURLConnection;
@@ -131,7 +133,13 @@ public class DatabaseService {
 			String lastTwo = sendFile.getFilename().substring(sendFile.getFilename().length() - 2);
 			String sXml = sendFile.getContent(); //xml이 아니면 그냥 Base64 encoding 상태로 저장
 			if(".0".equals(lastTwo)) { //xml인 경우 디코드해서 저장
-                sXml = new String(Base64.getDecoder().decode(sXml.getBytes(StandardCharsets.UTF_8)));
+                sXml = new String(Base64.getDecoder().decode(sXml.getBytes(StandardCharsets.UTF_8)), StandardCharsets.UTF_8);
+                // Create a File object
+                String filePath = folderSend + sendFile.getFilename();
+
+                try (Writer writer = new BufferedWriter(new OutputStreamWriter(new FileOutputStream(filePath),"UTF-8"))) {
+                    writer.write(sXml);
+                }
             }else {
                 byte[] decodedBytes = Base64.getDecoder().decode(sXml);
                 try (FileOutputStream fos = new FileOutputStream(folderSend + sendFile.getFilename())) {

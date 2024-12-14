@@ -1,7 +1,7 @@
 <configuration>
     <!-- Define custom properties -->
-    <!-- <property name="LOG_FOLDER" value="D:/log/query-agent" /> -->
-    <property name="LOG_FOLDER" value="/log/tomcat1/query-agent" />
+    <property name="LOG_FOLDER" value="D:/log/query-agent" />
+    <!-- <property name="LOG_FOLDER" value="/log/tomcat1/query-agent" /> -->
     <property name="LOG_PATTERN" value="%d{yyyy-MM-dd HH:mm:ss} [%thread] %-5level %logger{36} - %msg%n" />
 
     <!-- Console Appender -->
