@@ -233,4 +233,34 @@ public class DatabaseController {
         }
         return ResponseEntity.ok(rtn);
     }
+
+    @PostMapping("/soap")
+    public ResponseEntity<Map<String, Object>> callSOAP(@RequestBody String bizNos) {
+        Map<String, Object> rtn = new HashMap<>();
+        // 기본 생성자로 생성시 현재 시간과 날짜 정보를 가진 Date 객체가 생성됩니다.
+        Date nowDate = new Date();
+
+        // 원하는 형태의 포맷으로 날짜, 시간을 표현하기 위해서는 SimpleDateFormat 클래스를 이용합니다.
+        
+        SimpleDateFormat dateFormat = new SimpleDateFormat("yyyyMMdd");
+        SimpleDateFormat timeFormat = new SimpleDateFormat("HHmmss");
+
+        String date = dateFormat.format(nowDate);
+        String time = timeFormat.format(nowDate);
+        try {
+            List<Map<String, String>> result = databaseService.callSOAP(bizNos);
+            rtn.put("result", "SUCCESS");
+            rtn.put("data", result);
+            rtn.put("message", "");
+            logger.info("Response from SOAP:", result);
+            databaseService.Log("Response from SOAP: " + Integer.toString(result.size()), date, time);
+        } catch (Exception e) {
+            rtn.put("result", "FAIL");
+            rtn.put("data", "");
+            rtn.put("message", e.getMessage());
+            logger.error(">>>Error calling SOAP: ", e.getMessage());
+            databaseService.Log(">>>Error calling SOAP: " + e.getMessage(), date, time);
+        }
+        return ResponseEntity.ok(rtn);
+    }
 }

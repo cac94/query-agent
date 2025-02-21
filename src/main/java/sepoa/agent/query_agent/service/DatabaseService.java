@@ -1,5 +1,7 @@
 package sepoa.agent.query_agent.service;
 
+import org.apache.axis2.client.Options;
+import org.apache.axis2.transport.http.HTTPConstants;
 import org.apache.commons.io.FileUtils;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.jdbc.core.JdbcTemplate;
@@ -8,6 +10,12 @@ import org.springframework.stereotype.Service;
 import com.google.gson.Gson;
 import com.google.gson.reflect.TypeToken;
 
+import kr.co.sepoasoft.pp.webservice.CSRWSExceptionException;
+import kr.co.sepoasoft.pp.webservice.CSRWSStub;
+import kr.co.sepoasoft.pp.webservice.CSRWSStub.InParam;
+import kr.co.sepoasoft.pp.webservice.CSRWSStub.PublicPurchaseCertVO;
+import kr.co.sepoasoft.pp.webservice.CSRWSStub.Query;
+import kr.co.sepoasoft.pp.webservice.CSRWSStub.QueryResponse;
 import sepoa.agent.query_agent.model.SendFile;
 
 import java.io.BufferedReader;
@@ -16,7 +24,6 @@ import java.io.File;
 import java.io.FileInputStream;
 import java.io.FileNotFoundException;
 import java.io.FileOutputStream;
-import java.io.FileWriter;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
@@ -33,6 +40,7 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.nio.file.StandardCopyOption;
+import java.rmi.RemoteException;
 import java.security.cert.CertificateException;
 import java.security.cert.X509Certificate;
 import java.text.SimpleDateFormat;
@@ -43,11 +51,10 @@ import java.util.Arrays;
 import java.util.Base64;
 import java.util.Date;
 import java.util.HashMap;
+import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
 import java.util.Properties;
-import java.util.regex.Matcher;
-import java.util.regex.Pattern;
 
 import javax.net.ssl.HttpsURLConnection;
 import javax.net.ssl.SSLContext;
@@ -75,13 +82,16 @@ public class DatabaseService {
     private String confTypesFile;
 
     @Value("${sepoa.log}")
-	private String logFolder;
+    private String logFolder;
 
     @Value("${sepoa.token.session}")
-	public String sessionToken;
+    public String sessionToken;
 
     @Value("${sepoa.token.service}")
-	public String serviceToken;
+    public String serviceToken;
+
+    @Value("${sepoa.ws.endpoint}")
+    public String soapEndPoint;
 
     private final JdbcTemplate jdbcTemplate;
     public String checkFile = "";
@@ -101,7 +111,7 @@ public class DatabaseService {
         SimpleDateFormat dateFormat = new SimpleDateFormat("yyyyMMdd");
         String year = dateFormat.format(nowDate).substring(0, 4) ;
         String month = dateFormat.format(nowDate).substring(4, 6) ;
-		String formattedDate = LocalDate.now().format(DateTimeFormatter.ofPattern("yyyy/MM/dd"));		        
+        String formattedDate = LocalDate.now().format(DateTimeFormatter.ofPattern("yyyy/MM/dd"));		        
 
         this.checkFile = this.logFolder.replace("/", File.separator)+"/"+year+"/"+month+"/" +"RecvFileList.txt";
         this.folderPath = this.folderRecv + formattedDate;
@@ -119,20 +129,20 @@ public class DatabaseService {
 
     public String sendFile(SendFile sendFile) {
         String rtn = "";
-		Date nowDate = new Date();
+        Date nowDate = new Date();
 
-		// 원하는 형태의 포맷으로 날짜, 시간을 표현하기 위해서는 SimpleDateFormat 클래스를 이용합니다.
-		
-		SimpleDateFormat dateFormat = new SimpleDateFormat("yyyyMMdd");
-		SimpleDateFormat timeFormat = new SimpleDateFormat("HHmmss");
+        // 원하는 형태의 포맷으로 날짜, 시간을 표현하기 위해서는 SimpleDateFormat 클래스를 이용합니다.
+        
+        SimpleDateFormat dateFormat = new SimpleDateFormat("yyyyMMdd");
+        SimpleDateFormat timeFormat = new SimpleDateFormat("HHmmss");
 
-		String date = dateFormat.format(nowDate);
+        String date = dateFormat.format(nowDate);
         String time = timeFormat.format(nowDate);
 
         try{
-			String lastTwo = sendFile.getFilename().substring(sendFile.getFilename().length() - 2);
-			String sXml = sendFile.getContent(); //xml이 아니면 그냥 Base64 encoding 상태로 저장
-			if(".0".equals(lastTwo)) { //xml인 경우 디코드해서 저장
+            String lastTwo = sendFile.getFilename().substring(sendFile.getFilename().length() - 2);
+            String sXml = sendFile.getContent(); //xml이 아니면 그냥 Base64 encoding 상태로 저장
+            if(".0".equals(lastTwo)) { //xml인 경우 디코드해서 저장
                 sXml = new String(Base64.getDecoder().decode(sXml.getBytes(StandardCharsets.UTF_8)), StandardCharsets.UTF_8);
                 // Create a File object
                 String filePath = folderSend + sendFile.getFilename();
@@ -154,56 +164,56 @@ public class DatabaseService {
         return rtn;
     }
  
-	public String callRestInterface(String url, String key, String xml, String type) throws Exception {
-		// 기본 생성자로 생성시 현재 시간과 날짜 정보를 가진 Date 객체가 생성됩니다.
-		Date nowDate = new Date();
+    public String callRestInterface(String url, String key, String xml, String type) throws Exception {
+        // 기본 생성자로 생성시 현재 시간과 날짜 정보를 가진 Date 객체가 생성됩니다.
+        Date nowDate = new Date();
 
-		// 원하는 형태의 포맷으로 날짜, 시간을 표현하기 위해서는 SimpleDateFormat 클래스를 이용합니다.
-		
-		SimpleDateFormat dateFormat = new SimpleDateFormat("yyyyMMdd");
-		SimpleDateFormat timeFormat = new SimpleDateFormat("HHmmss");
+        // 원하는 형태의 포맷으로 날짜, 시간을 표현하기 위해서는 SimpleDateFormat 클래스를 이용합니다.
+        
+        SimpleDateFormat dateFormat = new SimpleDateFormat("yyyyMMdd");
+        SimpleDateFormat timeFormat = new SimpleDateFormat("HHmmss");
 
-		String date = dateFormat.format(nowDate);
+        String date = dateFormat.format(nowDate);
         String time = timeFormat.format(nowDate);
-		
-		Log("Call URL : " + url, date, time);
-		Log("key : " + key, date, time);
-		Log("xml : " + xml, date, time);
-		Log("type : " + type, date, time);
+        
+        Log("Call URL : " + url, date, time);
+        Log("key : " + key, date, time);
+        Log("xml : " + xml, date, time);
+        Log("type : " + type, date, time);
 
-	    URL interfaceURL = null;
-	    String readLine = null;
-	    StringBuilder buffer = null;
-	    OutputStream outputStream = null;
-	    BufferedReader bufferedReader = null;
-	    BufferedWriter bufferedWriter = null;
-	    HttpURLConnection urlConnection = null;
-	    
-	    int connTimeout = 5000;
-	    int readTimeout = 3000;
-	    
-	    interfaceURL = new URL(url);
+        URL interfaceURL = null;
+        String readLine = null;
+        StringBuilder buffer = null;
+        OutputStream outputStream = null;
+        BufferedReader bufferedReader = null;
+        BufferedWriter bufferedWriter = null;
+        HttpURLConnection urlConnection = null;
+        
+        int connTimeout = 5000;
+        int readTimeout = 3000;
+        
+        interfaceURL = new URL(url);
 
-		SSLContext ctx = SSLContext.getInstance("TLS");
-		X509TrustManager tm = new X509TrustManager() {
-			public void checkClientTrusted(X509Certificate[] chain, String authType) throws CertificateException {
-			}
+        SSLContext ctx = SSLContext.getInstance("TLS");
+        X509TrustManager tm = new X509TrustManager() {
+            public void checkClientTrusted(X509Certificate[] chain, String authType) throws CertificateException {
+            }
     
-			public void checkServerTrusted(X509Certificate[] chain, String authType) throws CertificateException {
-			}
+            public void checkServerTrusted(X509Certificate[] chain, String authType) throws CertificateException {
+            }
     
-			public X509Certificate[] getAcceptedIssuers() {
-				return null;
-			}
-		};
-		ctx.init(null, new TrustManager[] { tm }, null);
+            public X509Certificate[] getAcceptedIssuers() {
+                return null;
+            }
+        };
+        ctx.init(null, new TrustManager[] { tm }, null);
         HttpsURLConnection.setDefaultSSLSocketFactory(ctx.getSocketFactory());
-		
-		String token = "";
-		token = "Basic ";
-		String authInfo = "f6547794-5c6c-4ada-b13b-ca17c824d509:d1459227-f142-412e-b534-18b11e5bb306";
-		token += Base64.getEncoder().encodeToString(authInfo.getBytes(StandardCharsets.UTF_8));
-		//xml = Base64.getEncoder().encodeToString(xml.getBytes(StandardCharsets.UTF_8));
+        
+        String token = "";
+        token = "Basic ";
+        String authInfo = "f6547794-5c6c-4ada-b13b-ca17c824d509:d1459227-f142-412e-b534-18b11e5bb306";
+        token += Base64.getEncoder().encodeToString(authInfo.getBytes(StandardCharsets.UTF_8));
+        //xml = Base64.getEncoder().encodeToString(xml.getBytes(StandardCharsets.UTF_8));
         
         urlConnection = (HttpURLConnection)interfaceURL.openConnection();
         urlConnection.setRequestMethod("POST");
@@ -214,17 +224,17 @@ public class DatabaseService {
         urlConnection.setRequestProperty("Authorization", token);
         urlConnection.setDoOutput(true);
         urlConnection.setInstanceFollowRedirects(true);
-		String jsonData = "";
-		jsonData += "{";
-		jsonData += "\"token\":\"" + sessionToken + "\",";
-		jsonData += "\"do\":\"" + serviceToken + "\",";
-		jsonData += "\"data\":{";
-		jsonData += "\"KEY\":\"" + key + "\",";
-		jsonData += "\"TYPE\":\"" + type.toUpperCase() + "\",";
-		jsonData += "\"XML\":\"" + xml + "\"";
-		jsonData += "}";
-		jsonData += "}";
-		interfaceURL = new URL(url);
+        String jsonData = "";
+        jsonData += "{";
+        jsonData += "\"token\":\"" + sessionToken + "\",";
+        jsonData += "\"do\":\"" + serviceToken + "\",";
+        jsonData += "\"data\":{";
+        jsonData += "\"KEY\":\"" + key + "\",";
+        jsonData += "\"TYPE\":\"" + type.toUpperCase() + "\",";
+        jsonData += "\"XML\":\"" + xml + "\"";
+        jsonData += "}";
+        jsonData += "}";
+        interfaceURL = new URL(url);
 
         outputStream = urlConnection.getOutputStream();
 
@@ -248,15 +258,15 @@ public class DatabaseService {
             buffer.append(", \"message\" : \""+urlConnection.getResponseMessage()+"\"");
         }
         Log(buffer.toString(), date, time);
-		return buffer.toString();
-	}
+        return buffer.toString();
+    }
 
     public boolean moveFile(String sourceFile, String targetFile) {
-		Date nowDate = new Date();
-		SimpleDateFormat dateFormat = new SimpleDateFormat("yyyyMMdd");
-		SimpleDateFormat timeFormat = new SimpleDateFormat("HHmmss");
+        Date nowDate = new Date();
+        SimpleDateFormat dateFormat = new SimpleDateFormat("yyyyMMdd");
+        SimpleDateFormat timeFormat = new SimpleDateFormat("HHmmss");
 
-		String date = dateFormat.format(nowDate);
+        String date = dateFormat.format(nowDate);
         String time = timeFormat.format(nowDate);
         
         Path source = Paths.get(sourceFile); // 원본 파일 경로
@@ -271,8 +281,8 @@ public class DatabaseService {
         }
         return true;
     }
-	
-	// Helper method to read a file into a byte array
+    
+    // Helper method to read a file into a byte array
     public byte[] readFileToByteArray(File file) throws IOException {
         try (FileInputStream fis = new FileInputStream(file)) {
             byte[] fileData = new byte[(int) file.length()];
@@ -281,13 +291,13 @@ public class DatabaseService {
         }
     }
     
-	public String getPrintStackTrace(Throwable e) {
-		StringWriter errors = new StringWriter();
-		e.printStackTrace(new PrintWriter(errors));
-		return errors.toString();
-	}
-	
-	public Map<String, String> jsonToMap(String jsonString) {
+    public String getPrintStackTrace(Throwable e) {
+        StringWriter errors = new StringWriter();
+        e.printStackTrace(new PrintWriter(errors));
+        return errors.toString();
+    }
+    
+    public Map<String, String> jsonToMap(String jsonString) {
         Gson gson = new Gson();
 
         // Define the type for Map<String, String>
@@ -297,34 +307,98 @@ public class DatabaseService {
         Map<String, String> map = gson.fromJson(jsonString, type);
         return map;
     }
-	
-	public void Log(String l, String date, String time) {
-		System.out.println(l);
-		String path = logFolder;
+    
+    public void Log(String l, String date, String time) {
+        System.out.println(l);
+        String path = logFolder;
         String logFileName = "sepoa" + date + ".log";  
         File logFile = new File(path + File.separator + logFileName); 
         
-		try {
-			FileUtils.writeStringToFile(logFile, "\r\n[" + time + "]" + l, "UTF-8", true);
-		} catch (IOException e) {
-			e.printStackTrace();
-		}
-	}
+        try {
+            FileUtils.writeStringToFile(logFile, "\r\n[" + time + "]" + l, "UTF-8", true);
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
+    }
     
-	public Properties readProperties(String propFileName) {
-		Properties prop = new Properties();
-		InputStream inputStream = getClass().getClassLoader().getResourceAsStream(propFileName);
+    public Properties readProperties(String propFileName) {
+        Properties prop = new Properties();
+        InputStream inputStream = getClass().getClassLoader().getResourceAsStream(propFileName);
 
-		try {
-			if (inputStream != null) {
-				prop.load(inputStream);
-				return prop;
-			} else {
-				throw new FileNotFoundException("프로퍼티 파일 '" + propFileName + "'을 resource에서 찾을 수 없습니다.");
+        try {
+            if (inputStream != null) {
+                prop.load(inputStream);
+                return prop;
+            } else {
+                throw new FileNotFoundException("프로퍼티 파일 '" + propFileName + "'을 resource에서 찾을 수 없습니다.");
+            }
+        } catch (IOException e) {
+            e.printStackTrace();
+            return null;
+        }
+    }
+
+    public List<Map<String, String>> callSOAP(String bizNos) throws Exception {
+        List<Map<String, String>> ifDataList = new LinkedList<Map<String, String>>();
+        if(bizNos.isEmpty()) return ifDataList;
+
+		SimpleDateFormat sdf = new SimpleDateFormat("yyyyMMdd");
+		String date = sdf.format(new Date()); // 자동집계시 기준일자 : 현재날짜 기준 (X) POSTING_DATE 기준 (O)
+        SimpleDateFormat timeFormat = new SimpleDateFormat("HHmmss");
+        String time = timeFormat.format(new Date());
+
+        Log("SOAP End Point before:" + soapEndPoint, date, time);
+        CSRWSStub stub = new CSRWSStub(soapEndPoint);
+        Log("SOAP stub created", date, time);
+
+		int timeOut = 10 * 60 * 1000;
+		Options option = stub._getServiceClient().getOptions();
+		option.setProperty(HTTPConstants.SO_TIMEOUT, timeOut);
+
+		Query query = new Query();
+
+        String[] queryBizNos = bizNos.split(",");
+		InParam[] inParams = new InParam[queryBizNos.length];
+		int i = 0;
+        for (String bizNo : queryBizNos) {
+			InParam inParam = new InParam();
+			inParam.setBizNo(bizNo);
+			inParam.setDate(date);
+            inParam.setAutoDetect(false);
+			inParams[i++] = inParam;
+        }
+
+		query.setInParamList(inParams);
+        Log("SOAP before stub query", date, time);
+		QueryResponse response = stub.query(query);
+        Log("SOAP after stub query", date, time);
+
+		PublicPurchaseCertVO[] vos = response.get_return();
+        Log("SOAP vos count" + Integer.toString(vos.length), date, time);
+
+		if (vos != null) {
+			for (PublicPurchaseCertVO vo : vos) {
+				Map<String, String> map = new HashMap<String, String>();
+				map.put("BIZ_NO", vo.getBIZ_NO());
+				map.put("CSR_KIND", vo.getCSR_KIND());
+				map.put("CERT_NM", vo.getCERT_NM());
+				map.put("CERT_NO", vo.getCERT_NO());
+				map.put("CERT_CNF_NM", vo.getCERT_CNF_NM());
+				map.put("CERT_ST_DT", vo.getCERT_ST_DT());
+				map.put("CERT_EN_DT", vo.getCERT_EN_DT());
+				map.put("CORP_NM", vo.getCORP_NM());
+				
+				//mergeSPPCT 누락 파라메터 추가 (20240820)
+				map.put("LAST_CERT_ST_DT", vo.getCERT_ST_DT());
+				map.put("LAST_CERT_EN_DT", vo.getCERT_EN_DT());
+				map.put("BEFORE_CERT_ST_DT", vo.getCERT_ST_DT());
+				map.put("BEFORE_CERT_EN_DT", vo.getCERT_EN_DT());
+				
+				ifDataList.add(map);
 			}
-		} catch (IOException e) {
-			e.printStackTrace();
-			return null;
 		}
-	}
+        Log(ifDataList.toString(), date, time);
+
+        return ifDataList;
+    }
 }
