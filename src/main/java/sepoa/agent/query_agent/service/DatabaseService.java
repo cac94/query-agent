@@ -374,9 +374,9 @@ public class DatabaseService {
         Log("SOAP after stub query", date, time);
 
 		PublicPurchaseCertVO[] vos = response.get_return();
-        Log("SOAP vos count" + Integer.toString(vos.length), date, time);
 
 		if (vos != null) {
+            Log("SOAP vos count" + Integer.toString(vos.length), date, time);
 			for (PublicPurchaseCertVO vo : vos) {
 				Map<String, String> map = new HashMap<String, String>();
 				map.put("BIZ_NO", vo.getBIZ_NO());

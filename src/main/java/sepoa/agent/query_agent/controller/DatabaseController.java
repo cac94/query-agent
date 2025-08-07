@@ -6,6 +6,7 @@ import org.apache.commons.io.filefilter.WildcardFileFilter;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
@@ -30,6 +31,8 @@ import java.util.Map;
 @RestController
 @RequestMapping("/api")
 public class DatabaseController {
+    @Value("${test.query}")
+    private String testQuery;
 
     private final DatabaseService databaseService;
     private static final Logger logger = LoggerFactory.getLogger(DatabaseController.class);
@@ -46,7 +49,7 @@ public class DatabaseController {
         Map<String, Object> rtn = new HashMap<>();
         try {
             logger.info("=== test call");
-            String sql = "SELECT TOP 1 TABLE_SCHEMA, TABLE_NAME FROM INFORMATION_SCHEMA.TABLES";
+            String sql = testQuery.replace("__", " ");
             List<Map<String, Object>> result = databaseService.executeQuery(sql);
             rtn.put("result", "SUCCESS");
             rtn.put("data", result);
@@ -102,7 +105,7 @@ public class DatabaseController {
             // 폴더 내의 모든 파일 및 하위 폴더를 검사합니다.
             List<File> resultFiles = new ArrayList<>();
             for (String type : databaseService.types) {
-                resultFiles.addAll((List<File>) FileUtils.listFiles(folder, new WildcardFileFilter(type + "*"),TrueFileFilter.INSTANCE));
+                resultFiles.addAll((List<File>) FileUtils.listFiles(folder, new WildcardFileFilter(type + "*.0"),TrueFileFilter.INSTANCE));
             } 
             
             //이미 읽은 파일 목록을 가져옵니다.
