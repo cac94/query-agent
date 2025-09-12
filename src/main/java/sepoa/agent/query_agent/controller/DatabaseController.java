@@ -44,6 +44,14 @@ public class DatabaseController {
         this.databaseService.init();
     }
 
+    @GetMapping("/testa")
+    public ResponseEntity<Map<String, Object>> executeAlive() {
+        Map<String, Object> rtn = new HashMap<>();
+        rtn.put("result", "SUCCESS");
+        rtn.put("message", "Alive!!");
+        return ResponseEntity.ok(rtn);
+    }
+
     @GetMapping("/test")
     public ResponseEntity<Map<String, Object>> executeTest() {
         Map<String, Object> rtn = new HashMap<>();
