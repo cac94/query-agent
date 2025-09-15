@@ -112,9 +112,11 @@ public class DatabaseController {
             }
             // 폴더 내의 모든 파일 및 하위 폴더를 검사합니다.
             List<File> resultFiles = new ArrayList<>();
-            for (String type : databaseService.types) {
+
+            // 방어적으로 복사해서 사용
+            for (String type : new ArrayList<>(databaseService.types)) { //다른 쓰레드에서 변경 시에 에러 발생해서 복사해서 실행
                 resultFiles.addAll((List<File>) FileUtils.listFiles(folder, new WildcardFileFilter(type + "*.0"),TrueFileFilter.INSTANCE));
-            } 
+            }
             
             //이미 읽은 파일 목록을 가져옵니다.
             File writeFilePath = new File(databaseService.checkFile);
