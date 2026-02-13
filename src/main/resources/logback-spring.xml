@@ -1,25 +1,30 @@
 <configuration>
-    <!-- Define custom properties -->
-    <property name="LOG_FOLDER" value="D:/log/query-agent" />
-    <!-- <property name="LOG_FOLDER" value="/log/tomcat1/query-agent" /> -->
-    <property name="LOG_PATTERN" value="%d{yyyy-MM-dd HH:mm:ss} [%thread] %-5level %logger{36} - %msg%n" />
+    <!-- Load properties from application.properties -->
+    <springProperty scope="context" name="LOG_FILE" source="logging.file.name" defaultValue="/log/application.log"/>
+    <springProperty scope="context" name="LOG_PATTERN" source="logging.pattern.file" defaultValue="%d{yyyy-MM-dd HH:mm:ss} [%thread] %-5level %logger{36} - %msg%n"/>
+    <springProperty scope="context" name="MAX_HISTORY" source="logging.logback.rollingpolicy.max-history" defaultValue="30"/>
+
+    <!-- Timestamp for current log file -->
+    <timestamp key="byDate" datePattern="yyyy-MM-dd"/>
 
     <!-- Console Appender -->
     <appender name="CONSOLE" class="ch.qos.logback.core.ConsoleAppender">
         <encoder>
             <pattern>${LOG_PATTERN}</pattern>
+            <charset>UTF-8</charset>
         </encoder>
     </appender>
 
     <!-- File Appender -->
     <appender name="FILE" class="ch.qos.logback.core.rolling.RollingFileAppender">
-        <file>${LOG_FOLDER}/application.log</file>
+        <file>${LOG_FILE}</file>
         <rollingPolicy class="ch.qos.logback.core.rolling.TimeBasedRollingPolicy">
-            <fileNamePattern>${LOG_FOLDER}/application.%d{yyyy-MM-dd}.log</fileNamePattern>
-            <maxHistory>30</maxHistory>
+            <fileNamePattern>${LOG_FILE}.%d{yyyy-MM-dd}.gz</fileNamePattern>
+            <maxHistory>${MAX_HISTORY}</maxHistory>
         </rollingPolicy>
         <encoder>
             <pattern>${LOG_PATTERN}</pattern>
+            <charset>UTF-8</charset>
         </encoder>
     </appender>
 

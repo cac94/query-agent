@@ -3,6 +3,8 @@ package sepoa.agent.query_agent.service;
 import org.apache.axis2.client.Options;
 import org.apache.axis2.transport.http.HTTPConstants;
 import org.apache.commons.io.FileUtils;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Service;
@@ -63,6 +65,8 @@ import javax.net.ssl.X509TrustManager;
 
 @Service
 public class DatabaseService {
+    private static final Logger logger = LoggerFactory.getLogger(DatabaseService.class);
+    
     @Value("${sepoa.url}")
     public String recvUrl;
 
@@ -129,15 +133,6 @@ public class DatabaseService {
 
     public String sendFile(SendFile sendFile) {
         String rtn = "";
-        Date nowDate = new Date();
-
-        // 원하는 형태의 포맷으로 날짜, 시간을 표현하기 위해서는 SimpleDateFormat 클래스를 이용합니다.
-        
-        SimpleDateFormat dateFormat = new SimpleDateFormat("yyyyMMdd");
-        SimpleDateFormat timeFormat = new SimpleDateFormat("HHmmss");
-
-        String date = dateFormat.format(nowDate);
-        String time = timeFormat.format(nowDate);
 
         try{
             String lastTwo = sendFile.getFilename().substring(sendFile.getFilename().length() - 2);
@@ -157,7 +152,7 @@ public class DatabaseService {
                 }
             }
         } catch (Exception e) {
-            Log("Failed to move file: " + e.getMessage(), date, time);
+            logger.error("Failed to move file: {}", e.getMessage(), e);
             return rtn = e.getMessage();
         }
 
@@ -165,21 +160,11 @@ public class DatabaseService {
     }
  
     public String callRestInterface(String url, String key, String xml, String type) throws Exception {
-        // 기본 생성자로 생성시 현재 시간과 날짜 정보를 가진 Date 객체가 생성됩니다.
-        Date nowDate = new Date();
-
-        // 원하는 형태의 포맷으로 날짜, 시간을 표현하기 위해서는 SimpleDateFormat 클래스를 이용합니다.
         
-        SimpleDateFormat dateFormat = new SimpleDateFormat("yyyyMMdd");
-        SimpleDateFormat timeFormat = new SimpleDateFormat("HHmmss");
-
-        String date = dateFormat.format(nowDate);
-        String time = timeFormat.format(nowDate);
-        
-        Log("Call URL : " + url, date, time);
-        Log("key : " + key, date, time);
-        Log("xml : " + xml, date, time);
-        Log("type : " + type, date, time);
+        logger.info("Call URL : {}", url);
+        logger.info("key : {}", key);
+        logger.info("xml : {}", xml);
+        logger.info("type : {}", type);
 
         URL interfaceURL = null;
         String readLine = null;
@@ -257,26 +242,19 @@ public class DatabaseService {
             buffer.append("\"code\" : \""+urlConnection.getResponseCode()+"\"");
             buffer.append(", \"message\" : \""+urlConnection.getResponseMessage()+"\"");
         }
-        Log(buffer.toString(), date, time);
+        logger.info("Response: {}", buffer.toString());
         return buffer.toString();
     }
 
     public boolean moveFile(String sourceFile, String targetFile) {
-        Date nowDate = new Date();
-        SimpleDateFormat dateFormat = new SimpleDateFormat("yyyyMMdd");
-        SimpleDateFormat timeFormat = new SimpleDateFormat("HHmmss");
-
-        String date = dateFormat.format(nowDate);
-        String time = timeFormat.format(nowDate);
-        
         Path source = Paths.get(sourceFile); // 원본 파일 경로
         Path target = Paths.get(targetFile); // 대상 파일 경로
 
         try {
             Files.move(source, target, StandardCopyOption.REPLACE_EXISTING); // 파일 이동
-            Log("File moved successfully.", date, time);
+            logger.info("File moved successfully from {} to {}", sourceFile, targetFile);
         } catch (Exception e) {
-            Log("Failed to move file: " + e.getMessage(), date, time);
+            logger.error("Failed to move file from {} to {}: {}", sourceFile, targetFile, e.getMessage(), e);
             return false;
         }
         return true;
@@ -308,17 +286,8 @@ public class DatabaseService {
         return map;
     }
     
-    public void Log(String l, String date, String time) {
-        System.out.println(l);
-        String path = logFolder;
-        String logFileName = "sepoa" + date + ".log";  
-        File logFile = new File(path + File.separator + logFileName); 
-        
-        try {
-            FileUtils.writeStringToFile(logFile, "\r\n[" + time + "]" + l, "UTF-8", true);
-        } catch (IOException e) {
-            e.printStackTrace();
-        }
+    public void Log(String message) {
+        logger.info(message);
     }
     
     public Properties readProperties(String propFileName) {
@@ -344,12 +313,10 @@ public class DatabaseService {
 
 		SimpleDateFormat sdf = new SimpleDateFormat("yyyyMMdd");
 		String date = sdf.format(new Date()); // 자동집계시 기준일자 : 현재날짜 기준 (X) POSTING_DATE 기준 (O)
-        SimpleDateFormat timeFormat = new SimpleDateFormat("HHmmss");
-        String time = timeFormat.format(new Date());
 
-        Log("SOAP End Point before:" + soapEndPoint, date, time);
+        logger.info("SOAP End Point before: {}", soapEndPoint);
         CSRWSStub stub = new CSRWSStub(soapEndPoint);
-        Log("SOAP stub created", date, time);
+        logger.info("SOAP stub created");
 
 		int timeOut = 10 * 60 * 1000;
 		Options option = stub._getServiceClient().getOptions();
@@ -369,14 +336,14 @@ public class DatabaseService {
         }
 
 		query.setInParamList(inParams);
-        Log("SOAP before stub query", date, time);
+        logger.info("SOAP before stub query");
 		QueryResponse response = stub.query(query);
-        Log("SOAP after stub query", date, time);
+        logger.info("SOAP after stub query");
 
 		PublicPurchaseCertVO[] vos = response.get_return();
 
 		if (vos != null) {
-            Log("SOAP vos count" + Integer.toString(vos.length), date, time);
+            logger.info("SOAP vos count: {}", vos.length);
 			for (PublicPurchaseCertVO vo : vos) {
 				Map<String, String> map = new HashMap<String, String>();
 				map.put("BIZ_NO", vo.getBIZ_NO());
@@ -397,7 +364,7 @@ public class DatabaseService {
 				ifDataList.add(map);
 			}
 		}
-        Log(ifDataList.toString(), date, time);
+        logger.info("SOAP result: {}", ifDataList.toString());
 
         return ifDataList;
     }

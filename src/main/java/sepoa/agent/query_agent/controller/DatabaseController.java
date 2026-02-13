@@ -85,25 +85,14 @@ public class DatabaseController {
         Map<String, Object> rtn = new HashMap<>();
         // 조달청에서 넘어온 데이타 저장
         HashSet<String> fileNameSet =new HashSet<String>();
-
-        // 기본 생성자로 생성시 현재 시간과 날짜 정보를 가진 Date 객체가 생성됩니다.
-        Date nowDate = new Date();
-
-        // 원하는 형태의 포맷으로 날짜, 시간을 표현하기 위해서는 SimpleDateFormat 클래스를 이용합니다.
-        
-        SimpleDateFormat dateFormat = new SimpleDateFormat("yyyyMMdd");
-        SimpleDateFormat timeFormat = new SimpleDateFormat("HHmmss");
-
-        String date = dateFormat.format(nowDate);
-        String time = timeFormat.format(nowDate);
         
         try {
-            databaseService.Log("-------------------------------------------------------------------", date, time);
+            logger.info("-------------------------------------------------------------------");
 
-            databaseService.Log("folderPath : " + databaseService.folderPath, date, time);
-            databaseService.Log("targetFolder : " + databaseService.targetFolder, date, time);
-            databaseService.Log("sessionToken : " + databaseService.sessionToken, date, time);
-            databaseService.Log("serviceToken : " + databaseService.serviceToken, date, time);
+            logger.info("folderPath : {}", databaseService.folderPath);
+            logger.info("targetFolder : {}", databaseService.targetFolder);
+            logger.info("sessionToken : {}", databaseService.sessionToken);
+            logger.info("serviceToken : {}", databaseService.serviceToken);
 
             rtn.put("message", "");
             File folder = new File(databaseService.folderPath);
@@ -145,12 +134,12 @@ public class DatabaseController {
                             String key = file.getPath().replaceAll("\\\\", "/");
                             fileName = file.getName();
                             String type = fileName.substring(0, 6 );
-                            databaseService.Log("fileName : " + fileName, date, time);
-                            databaseService.Log("type : " + type, date, time);
+                            logger.info("fileName : {}", fileName);
+                            logger.info("type : {}", type);
 
                             // 중복파일 체크파일 이름이 이미 있는 경우 예외 발생
                             if (!fileNameSet.add(fileName)) {
-                                databaseService.Log("이미 처리한 파일입니다.: "+fileName, date, time);
+                                logger.info("이미 처리한 파일입니다.: {}", fileName);
                                 continue;
                             }
                             key = key.substring(key.indexOf("recv"), key.length()); //경로 DB 저장용
@@ -168,21 +157,20 @@ public class DatabaseController {
                             returnData = databaseService.callRestInterface(databaseService.recvUrl, key, base64String, type);
 
                             Map<String, String> g2bMap = databaseService.jsonToMap(returnData);
-                            databaseService.Log("g2bMap : " + g2bMap, date, time);
-                            databaseService.Log("Send Message : " + g2bMap.get("message"), date, time);
+                            logger.info("g2bMap : {}", g2bMap);
+                            logger.info("Send Message : {}", g2bMap.get("message"));
 
                             if(g2bMap != null && "false".equals(g2bMap.get("flag"))) {
-                                databaseService.Log("Send File Error : " + file.getPath(), date, time);
+                                logger.error("Send File Error : {}", file.getPath());
                             } else {
                                 System.out.println(g2bMap);
                                 //신규파일 이름 기록
                                 FileUtils.writeStringToFile(writeFilePath, fileName+"\n", "UTF-8", true);
-                                databaseService.Log("Send File Success : " + file.getPath(), date, time);
+                                logger.info("Send File Success : {}", file.getPath());
                                 
                             }
                         }catch(Exception e){
-                            databaseService.Log("Job File Fail01!!! : " + file.getPath(), date, time);
-                            databaseService.Log("Job File Fail01!!! : " + databaseService.getPrintStackTrace(e), date, time);
+                            logger.error("Job File Fail01!!! : {}", file.getPath(), e);
                         }finally {
                             databaseService.moveFile(databaseService.folderPath + "/" + fileName, databaseService.targetFolder + "/" + fileName);
                         }
@@ -190,8 +178,7 @@ public class DatabaseController {
                 }
             }
         } catch (Throwable e) {
-            databaseService.Log("Job File Fail02!!! : " + e.getMessage(), date, time);
-            databaseService.Log("Job File Fail02!!! : " + databaseService.getPrintStackTrace(e), date, time);
+            logger.error("Job File Fail02!!! : {}", e.getMessage(), e);
         } 
 
         return ResponseEntity.ok(rtn);
@@ -251,29 +238,17 @@ public class DatabaseController {
     @PostMapping("/soap")
     public ResponseEntity<Map<String, Object>> callSOAP(@RequestBody String bizNos) {
         Map<String, Object> rtn = new HashMap<>();
-        // 기본 생성자로 생성시 현재 시간과 날짜 정보를 가진 Date 객체가 생성됩니다.
-        Date nowDate = new Date();
-
-        // 원하는 형태의 포맷으로 날짜, 시간을 표현하기 위해서는 SimpleDateFormat 클래스를 이용합니다.
-        
-        SimpleDateFormat dateFormat = new SimpleDateFormat("yyyyMMdd");
-        SimpleDateFormat timeFormat = new SimpleDateFormat("HHmmss");
-
-        String date = dateFormat.format(nowDate);
-        String time = timeFormat.format(nowDate);
         try {
             List<Map<String, String>> result = databaseService.callSOAP(bizNos);
             rtn.put("result", "SUCCESS");
             rtn.put("data", result);
             rtn.put("message", "");
-            logger.info("Response from SOAP:", result);
-            databaseService.Log("Response from SOAP: " + Integer.toString(result.size()), date, time);
+            logger.info("Response from SOAP: {}", result.size());
         } catch (Exception e) {
             rtn.put("result", "FAIL");
             rtn.put("data", "");
             rtn.put("message", e.getMessage());
-            logger.error(">>>Error calling SOAP: ", e.getMessage());
-            databaseService.Log(">>>Error calling SOAP: " + e.getMessage(), date, time);
+            logger.error(">>>Error calling SOAP: {}", e.getMessage(), e);
         }
         return ResponseEntity.ok(rtn);
     }
