@@ -119,6 +119,7 @@ public class DatabaseService {
 
         this.checkFile = this.logFolder.replace("/", File.separator)+"/"+year+"/"+month+"/" +"RecvFileList.txt";
         this.folderPath = this.folderRecv + formattedDate;
+        this.types.clear();
         this.types.addAll(Arrays.asList(confTypes.split(","))); 
         this.types.addAll(Arrays.asList(confTypesFile.split(","))); 
     }
